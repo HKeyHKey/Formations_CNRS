@@ -49,7 +49,7 @@ surface_zoom=2000
 price_zoom=1.6e6
 
 model1=lm(complete_data$Price~complete_data$Surface)
-pdf('Price_analysis_only_surface.pdf',width=7,height=7)
+pdf('Price_analysis_only_surface.pdf',width=12,height=7)
 par(mfrow=c(1,2))
 plot(complete_data$Surface,complete_data$Price,xlab='Surface terrain (m^2)',ylab='Prix (€)')
 abline(model1,col='red')
