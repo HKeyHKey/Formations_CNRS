@@ -1,0 +1,208 @@
+data=read.csv('dvf.csv') # Downloaded from https://explore.data.gouv.fr/fr/immobilier?onglet=tableau&filtre=tous on March 4, 2026 (seleting département « Hérault » in the list)
+
+surface=c()
+price=c()
+type=c()
+town=c()
+surface_bati=c()
+for (id in unique(data$id_mutation))
+if ((length(unique(as.numeric(data$valeur_fonciere[data$id_mutation==id])))==1) && (length(unique(data$nom_commune[data$id_mutation==id]))==1))  # only one price and one town associated to the sale
+{
+surface=append(surface,sum(as.numeric(data$surface_terrain[data$id_mutation==id])))
+price=append(price,unique(as.numeric(data$valeur_fonciere[data$id_mutation==id])))
+town=append(town,unique(data$nom_commune[data$id_mutation==id]))
+bati=data$surface_reelle_bati[data$id_mutation==id]
+total_bati=0
+for (b in bati)
+if (b!='')
+total_bati=total_bati+as.numeric(b)
+surface_bati=append(surface_bati,total_bati)
+if (max(grepl('Maison',data$type_local[data$id_mutation==id]))==1)
+{
+type=append(type,'Maison')
+} else
+{
+if (max(grepl('Appartement',data$type_local[data$id_mutation==id]))==1)
+{
+type=append(type,'Appartement')
+} else
+if (max(grepl('Local industriel. commercial ou assimilé',data$type_local[data$id_mutation==id]))==1)
+{
+type=append(type,'Local industriel. commercial ou assimilé')
+} else
+if (max(grepl('Dépendance',data$type_local[data$id_mutation==id]))==1)
+{
+type=append(type,'Dépendance')
+} else
+type=append(type,'Pas de local')
+}
+}
+
+complete_data_list=list(surface,price,town,type,surface_bati)
+names(complete_data_list)=c('Surface','Price','Town','Type','Built_surface')
+complete_data=as.data.frame(complete_data_list)
+complete_data=subset(complete_data,!is.na(complete_data$Surface) & complete_data$Surface>0 & !is.na(complete_data$Price) & !is.na(complete_data$Town) & !is.na(complete_data$Type)) # missing surface information appears as a null surface
+
+surface_max=max(complete_data$Surface)
+price_max=max(complete_data$Price)
+surface_zoom=2000
+price_zoom=1.6e6
+
+model1=lm(complete_data$Price~complete_data$Surface)
+pdf('Price_analysis_only_surface.pdf',width=7,height=7)
+par(mfrow=c(1,2))
+plot(complete_data$Surface,complete_data$Price,xlab='Surface terrain (m^2)',ylab='Prix (€)')
+abline(model1,col='red')
+text(0.75*surface_max,model1$coef[1]+model1$coef[2]*0.75*surface_max,paste('y=',signif(model1$coef[2],digits=3),'*x+',signif(model1$coef[1],digits=3),sep=''),col='red')
+plot(complete_data$Surface,complete_data$Price,xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='Surface terrain (m^2)',ylab='Prix (€)')
+abline(model1,col='red')
+text(0.75*surface_zoom,model1$coef[1]+model1$coef[2]*0.75*surface_zoom,paste('y=',signif(model1$coef[2],digits=3),'*x+',signif(model1$coef[1],digits=3),sep=''),col='red')
+dev.off()
+
+
+model2=lm(complete_data$Price~complete_data$Surface+complete_data$Type+complete_data$Town)
+
+attach(complete_data)
+pdf('Price_analysis_stratified_by_type.pdf',width=7,height=7)
+plot(Surface[Type=='Maison'],Price[Type=='Maison'],col='blue',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='Surface terrain (m^2)',ylab='Prix (€)')
+par(new=T)
+plot(Surface[Type=='Appartement'],Price[Type=='Appartement'],col='green',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F)
+par(new=T)
+plot(Surface[Type=='Local industriel. commercial ou assimilé'],Price[Type=='Local industriel. commercial ou assimilé'],col='red',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F)
+par(new=T)
+plot(Surface[Type=='Dépendance'],Price[Type=='Dépendance'],col='orange',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F)
+par(new=T)
+plot(Surface[Type=='Pas de local'],Price[Type=='Pas de local'],col='black',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F)
+dev.off()
+
+pdf('Price_analysis_stratified_by_type_and_town.pdf',width=12,height=8)
+par(mfrow=c(2,3))
+for (town_display in c('Grabels','Ganges','Montpellier','Lunel','Lodève','Sète'))
+{
+attach(subset(complete_data,complete_data$Town==town_display))
+town_index=grep(paste('complete_data\\$Town',town_display,'$',sep=''),names(model2$coefficients))
+plot(Surface[Type=='Maison'],Price[Type=='Maison'],col='blue',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='Surface terrain (m^2)',ylab='Prix (€)',main=town_display);par(new=T);plot(Surface[Type=='Appartement'],Price[Type=='Appartement'],col='green',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F);par(new=T);plot(Surface[Type=='Local industriel. commercial ou assimilé'],Price[Type=='Local industriel. commercial ou assimilé'],col='red',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F);par(new=T);plot(Surface[Type=='Dépendance'],Price[Type=='Dépendance'],col='orange',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F);par(new=T);plot(Surface[Type=='Pas de local'],Price[Type=='Pas de local'],col='black',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F)
+abline(model2$coefficients[1]+model2$coefficients[5]+model2$coefficients[town_index],model2$coefficients[2],col='blue');abline(model2$coefficients[1]+model2$coefficients[town_index],model2$coefficients[2],col='green');abline(model2$coefficients[1]+model2$coefficients[4]+model2$coefficients[town_index],model2$coefficients[2],col='red');abline(model2$coefficients[1]+model2$coefficients[3]+model2$coefficients[town_index],model2$coefficients[2],col='orange');abline(model2$coefficients[1]+model2$coefficients[6]+model2$coefficients[town_index],model2$coefficients[2],col='black')
+}
+dev.off()
+
+
+# Because the price~surface dependency does not appear to be linear (price degressivity for large surfaces), let's rather model price~log(surface):
+model3=lm(complete_data$Price~log(complete_data$Surface)+complete_data$Type+complete_data$Town)
+
+# Because it appears logical to expect the surfacic price to depend on the type and town (rather than having a uniform surfacic price then a type-specific and a town-specific offset in total price), let's rather model surfacic prices rather than total prices:
+complete_data_surface_more_than_1=subset(complete_data,complete_data$Surface>1)
+model4=lm((complete_data_surface_more_than_1$Price/log(complete_data_surface_more_than_1$Surface))~complete_data_surface_more_than_1$Type+complete_data_surface_more_than_1$Town)
+
+# Because building surface may also affect surfacic prices:
+model5=lm((complete_data_surface_more_than_1$Price/log(complete_data_surface_more_than_1$Surface))~complete_data_surface_more_than_1$Type+complete_data_surface_more_than_1$Town+complete_data_surface_more_than_1$Built_surface)
+
+# Because building surface may also need to be log-transformed:
+log_built=log(complete_data_surface_more_than_1$Built_surface)
+log_built[!is.finite(log_built)]=0 # forcing log(built surface) to zero for built surface=0 (fortunately in this dataset no built surface is >0 and <1 hence with a finit negative log)
+model6=lm((complete_data_surface_more_than_1$Price/log(complete_data_surface_more_than_1$Surface))~complete_data_surface_more_than_1$Type+complete_data_surface_more_than_1$Town+log_built)
+
+# Because the main determinant for price may actually be building surface (rather than land surface), with land surface being a modulator of building surfacic price (we thus have to exclude lands without any building for that analysis):
+complete_data_built=subset(complete_data_surface_more_than_1,complete_data_surface_more_than_1$Built_surface>0)
+model7=lm((complete_data_built$Price/complete_data_built$Built_surface)~complete_data_built$Type+complete_data_built$Town+complete_data_built$Surface)
+model8=lm((complete_data_built$Price/complete_data_built$Built_surface)~complete_data_built$Type+complete_data_built$Town+log(complete_data_built$Surface))
+model9=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~complete_data_built$Type+complete_data_built$Town+complete_data_built$Surface)
+model10=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~complete_data_built$Type+complete_data_built$Town+log(complete_data_built$Surface))
+
+slice_size=surface_zoom/200
+x=c(0:(surface_zoom/slice_size))*slice_size
+
+pdf('Price_analysis_model3.pdf',width=12,height=8)
+par(mfrow=c(2,3))
+for (town_display in c('Grabels','Ganges','Montpellier','Lunel','Lodève','Sète'))
+{
+attach(subset(complete_data,complete_data$Town==town_display))
+town_index=grep(paste('complete_data\\$Town',town_display,'$',sep=''),names(model3$coefficients))
+plot(Surface[Type=='Maison'],Price[Type=='Maison'],col='blue',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='Surface terrain (m^2)',ylab='Prix (€)',main=town_display);par(new=T);plot(Surface[Type=='Appartement'],Price[Type=='Appartement'],col='green',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F);par(new=T);plot(Surface[Type=='Local industriel. commercial ou assimilé'],Price[Type=='Local industriel. commercial ou assimilé'],col='red',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F);par(new=T);plot(Surface[Type=='Dépendance'],Price[Type=='Dépendance'],col='orange',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F);par(new=T);plot(Surface[Type=='Pas de local'],Price[Type=='Pas de local'],col='black',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F)
+points(x,model3$coefficients[1]+model3$coefficients[2]*log(x)+model3$coefficients[5]+model3$coefficients[town_index],col='blue',ty='l')
+points(x,model3$coefficients[1]+model3$coefficients[2]*log(x)+model3$coefficients[town_index],col='green',ty='l')
+points(x,model3$coefficients[1]+model3$coefficients[2]*log(x)+model3$coefficients[4]+model3$coefficients[town_index],col='red',ty='l')
+points(x,model3$coefficients[1]+model3$coefficients[2]*log(x)+model3$coefficients[3]+model3$coefficients[town_index],col='orange',ty='l')
+points(x,model3$coefficients[1]+model3$coefficients[2]*log(x)+model3$coefficients[6]+model3$coefficients[town_index],col='black',ty='l')
+}
+dev.off()
+
+pdf('Price_analysis_model4.pdf',width=12,height=8)
+par(mfrow=c(2,3))
+for (town_display in c('Grabels','Ganges','Montpellier','Lunel','Lodève','Sète'))
+{
+attach(subset(complete_data,complete_data$Town==town_display))
+town_index=grep(paste('complete_data_surface_more_than_1\\$Town',town_display,'$',sep=''),names(model4$coefficients))
+plot(Surface[Type=='Maison'],Price[Type=='Maison'],col='blue',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='Surface terrain (m^2)',ylab='Prix (€)',main=town_display);par(new=T);plot(Surface[Type=='Appartement'],Price[Type=='Appartement'],col='green',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F);par(new=T);plot(Surface[Type=='Local industriel. commercial ou assimilé'],Price[Type=='Local industriel. commercial ou assimilé'],col='red',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F);par(new=T);plot(Surface[Type=='Dépendance'],Price[Type=='Dépendance'],col='orange',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F);par(new=T);plot(Surface[Type=='Pas de local'],Price[Type=='Pas de local'],col='black',xlim=c(0,surface_zoom),ylim=c(0,price_zoom),xlab='',ylab='',axes=F)
+points(x,log(x)*(model4$coefficients[1]+model4$coefficients[4]+model4$coefficients[town_index]),col='blue',ty='l')
+points(x,log(x)*(model4$coefficients[1]+model4$coefficients[town_index]),col='green',ty='l')
+points(x,log(x)*(model4$coefficients[1]+model4$coefficients[3]+model4$coefficients[town_index]),col='red',ty='l')
+points(x,log(x)*(model4$coefficients[1]+model4$coefficients[2]+model4$coefficients[town_index]),col='orange',ty='l')
+points(x,log(x)*(model4$coefficients[1]+model4$coefficients[5]+model4$coefficients[town_index]),col='black',ty='l')
+}
+dev.off()
+
+model_names=paste('model',1:10,sep='')
+model_desc=c('price~surface','price~surface+type+town','price~log(surface)+type+town','price/log(surface)~type+town','price/log(surface)~type+town+built_surface','price/log(surface)~type+town+log(built_surface)','price/built_surface~type+town+surface','price/built_surface~type+town+log(surface)','price/log(built_surface)~type+town+surface','price/log(built_surface)~type+town+log(surface)')
+model_adj=c(summary(model1)$adj,summary(model2)$adj,summary(model3)$adj,summary(model4)$adj,summary(model5)$adj,summary(model6)$adj,summary(model7)$adj,summary(model8)$adj,summary(model9)$adj,summary(model10)$adj)
+out_list=list(model_names,model_desc,model_adj)
+names(out_list)=c('Model','Desciption','Adj. R-squared')
+write.csv(as.data.frame(out_list),'Model_performance_comparison.csv')
+
+# Illustration of model10 performance with a few, randomly-picked sales (randomly-picked, but in a deterministic way, for reproducibility):
+
+modeled_prices=c()
+actual_prices=c()
+for (picked in 1:nrow(complete_data_built))
+{
+s=complete_data_built[picked,]$Surface
+p=complete_data_built[picked,]$Price
+to=complete_data_built[picked,]$Town
+ty=complete_data_built[picked,]$Type
+b=complete_data_built[picked,]$Built_surface
+town_index=grep(paste('complete_data_built\\$Town',to,'$',sep=''),names(model10$coefficients))
+type_index=grep(paste('complete_data_built\\$Type',ty,'$',sep=''),names(model10$coefficients))
+surface_index=grep('log\\(complete_data_built\\$Surface\\)$',names(model10$coefficients))
+if (ty=='Appartement')
+{
+type_term=0
+} else type_term=model10$coefficients[type_index]
+if (to=='Abeilhan')
+{
+town_term=0
+} else town_term=model10$coefficients[town_index]
+modeled_prices=append(modeled_prices,as.numeric((model10$coefficients[1]+town_term+type_term+model10$coefficients[surface_index]*log(s))*log(b)))
+actual_prices=append(actual_prices,p)
+}
+
+pdf('Illustration_performance_model10.pdf',width=7,height=7)
+plot(actual_prices,modeled_prices,xlim=c(0,price_zoom),ylim=c(0,price_zoom),xlab='Prix réel (€)',ylab='Prix modélisé (€)')
+abline(0,1,col='red')
+set.seed(100);picked_examples=sample(1:nrow(complete_data_built),3)
+for (picked in picked_examples)
+{
+if (picked==picked_examples[1]) color='red'
+if (picked==picked_examples[2]) color='blue'
+if (picked==picked_examples[3]) color='green'
+s=complete_data_built[picked,]$Surface
+p=complete_data_built[picked,]$Price
+to=complete_data_built[picked,]$Town
+ty=complete_data_built[picked,]$Type
+b=complete_data_built[picked,]$Built_surface
+town_index=grep(paste('complete_data_built\\$Town',to,'$',sep=''),names(model10$coefficients))
+type_index=grep(paste('complete_data_built\\$Type',ty,'$',sep=''),names(model10$coefficients))
+surface_index=grep('log\\(complete_data_built\\$Surface\\)$',names(model10$coefficients))
+if (ty=='Appartement')
+{
+type_term=0
+} else type_term=model10$coefficients[type_index]
+if (to=='Abeilhan')
+{
+town_term=0
+} else town_term=model10$coefficients[town_index]
+m=as.numeric((model10$coefficients[1]+town_term+type_term+model10$coefficients[surface_index]*log(s))*log(b))
+arrows(p+1e5,m-1e5,p,m,angle=30,col=color)
+text(p+1e5,m-1e5,paste('(',model10$coefficients[1],'+',town_term,'+',type_term,'+',model10$coefficients[surface_index],'*log(',s,'))*log(',b,')',sep=''),pos=3,col=color)
+text(p+1e5,m-1e5,paste('_',to,ty,s,b,sep=' '),pos=1,col=color)
+}
+dev.off()
