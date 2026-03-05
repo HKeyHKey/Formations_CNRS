@@ -1,0 +1,14 @@
+data=read.csv('Etoiles.tsv',sep='\t') # File downloaded from https://cdsarc.cds.unistra.fr/viz-bin/nph-Cat/txt?J/A+A/320/79/table4.dat.gz then edited to keep only mass and luminosity data, and only for the 41 stars where these two values are available
+
+pdf('Masse_luminosite_1.pdf',width=7,height=7)
+plot(data$Mass,10^(data$Log_luminosity),xlab='Masse',ylab='Luminosité')
+dev.off()
+
+x=data$Mass^4
+y=10^(data$Log_luminosity)
+model=lm(y~x)
+
+pdf('Masse_luminosite_2.pdf',width=7,height=7)
+plot(data$Mass^4,10^(data$Log_luminosity),xlab='Masse^4',ylab='Luminosité')
+abline(model,col='red')
+dev.off()
