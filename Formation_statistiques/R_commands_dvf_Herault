@@ -108,6 +108,12 @@ model7=lm((complete_data_built$Price/complete_data_built$Built_surface)~complete
 model8=lm((complete_data_built$Price/complete_data_built$Built_surface)~complete_data_built$Type+complete_data_built$Town+log(complete_data_built$Surface))
 model9=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~complete_data_built$Type+complete_data_built$Town+complete_data_built$Surface)
 model10=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~complete_data_built$Type+complete_data_built$Town+log(complete_data_built$Surface))
+model11=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~complete_data_built$Type*complete_data_built$Town+log(complete_data_built$Surface))
+model12=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~complete_data_built$Type+complete_data_built$Town*log(complete_data_built$Surface))
+model13=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~complete_data_built$Town+complete_data_built$Type*log(complete_data_built$Surface))
+model14=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~complete_data_built$Type*complete_data_built$Town*log(complete_data_built$Surface))
+
+
 
 slice_size=surface_zoom/200
 x=c(0:(surface_zoom/slice_size))*slice_size
@@ -142,16 +148,17 @@ points(x,log(x)*(model4$coefficients[1]+model4$coefficients[5]+model4$coefficien
 }
 dev.off()
 
-model_names=paste('model',1:10,sep='')
-model_desc=c('price~surface','price~surface+type+town','price~log(surface)+type+town','price/log(surface)~type+town','price/log(surface)~type+town+built_surface','price/log(surface)~type+town+log(built_surface)','price/built_surface~type+town+surface','price/built_surface~type+town+log(surface)','price/log(built_surface)~type+town+surface','price/log(built_surface)~type+town+log(surface)')
-model_adj=c(summary(model1)$adj,summary(model2)$adj,summary(model3)$adj,summary(model4)$adj,summary(model5)$adj,summary(model6)$adj,summary(model7)$adj,summary(model8)$adj,summary(model9)$adj,summary(model10)$adj)
+model_names=paste('model',1:14,sep='')
+model_desc=c('price~surface','price~surface+type+town','price~log(surface)+type+town','price/log(surface)~type+town','price/log(surface)~type+town+built_surface','price/log(surface)~type+town+log(built_surface)','price/built_surface~type+town+surface','price/built_surface~type+town+log(surface)','price/log(built_surface)~type+town+surface','price/log(built_surface)~type+town+log(surface)','price/log(built_surface)~type*town+log(surface)','price/log(built_surface)~type+town*log(surface)','price/log(built_surface)~town+type*log(surface)','price/log(built_surface)~type*town*log(surface)')
+model_adj=c(summary(model1)$adj,summary(model2)$adj,summary(model3)$adj,summary(model4)$adj,summary(model5)$adj,summary(model6)$adj,summary(model7)$adj,summary(model8)$adj,summary(model9)$adj,summary(model10)$adj,summary(model11)$adj,summary(model12)$adj,summary(model13)$adj,summary(model14)$adj)
 out_list=list(model_names,model_desc,model_adj)
 names(out_list)=c('Model','Desciption','Adj. R-squared')
 write.csv(as.data.frame(out_list),'Model_performance_comparison.csv')
 
-# Illustration of model10 performance with a few, randomly-picked sales (randomly-picked, but in a deterministic way, for reproducibility):
+# Illustration of model10 and model14 performance with a few, randomly-picked sales (randomly-picked, but in a deterministic way, for reproducibility):
 
-modeled_prices=c()
+modeled10_prices=c()
+modeled14_prices=c()
 actual_prices=c()
 for (picked in 1:nrow(complete_data_built))
 {
@@ -160,20 +167,70 @@ p=complete_data_built[picked,]$Price
 to=complete_data_built[picked,]$Town
 ty=complete_data_built[picked,]$Type
 b=complete_data_built[picked,]$Built_surface
-town_index=grep(paste('complete_data_built\\$Town',to,'$',sep=''),names(model10$coefficients))
-type_index=grep(paste('complete_data_built\\$Type',ty,'$',sep=''),names(model10$coefficients))
-surface_index=grep('log\\(complete_data_built\\$Surface\\)$',names(model10$coefficients))
+town_index10=grep(paste('complete_data_built\\$Town',to,'$',sep=''),names(model10$coefficients))
+type_index10=grep(paste('complete_data_built\\$Type',ty,'$',sep=''),names(model10$coefficients))
+town_index14=grep(paste('^complete_data_built\\$Town',to,'$',sep=''),names(model14$coefficients))
+type_index14=grep(paste('^complete_data_built\\$Type',ty,'$',sep=''),names(model14$coefficients))
+surface_index10=grep('log\\(complete_data_built\\$Surface\\)$',names(model10$coefficients))
+surface_index14=grep('^log\\(complete_data_built\\$Surface\\)$',names(model14$coefficients))
+interaction_type_town_index14=grep(paste('^complete_data_built\\$Type',ty,':complete_data_built\\$Town',to,'$',sep=''),names(model14$coefficients))
+interaction_type_surface_index14=grep(paste('complete_data_built\\$Type',ty,':log\\(complete_data_built\\$Surface\\)',sep=''),names(model14$coefficients))
+interaction_town_surface_index14=grep(paste('^complete_data_built\\$Town',to,':log\\(complete_data_built\\$Surface\\)',sep=''),names(model14$coefficients))
+interaction_type_town_surface_index14=grep(paste('complete_data_built\\$Type',ty,':complete_data_built\\$Town',to,':log\\(complete_data_built\\$Surface\\)',sep=''),names(model14$coefficients))
+
 if (ty=='Appartement')
 {
-type_term=0
-} else type_term=model10$coefficients[type_index]
+type_term10=0
+type_term14=0
+} else
+{
+type_term10=model10$coefficients[type_index10]
+type_term14=model14$coefficients[type_index14]
+}
 if (to=='Abeilhan')
 {
-town_term=0
-} else town_term=model10$coefficients[town_index]
-modeled_prices=append(modeled_prices,as.numeric((model10$coefficients[1]+town_term+type_term+model10$coefficients[surface_index]*log(s))*log(b)))
+town_term10=0
+town_term14=0
+} else
+{
+town_term10=model10$coefficients[town_index10]
+town_term14=model14$coefficients[town_index14]
+}
+modeled10_prices=append(modeled10_prices,as.numeric((model10$coefficients[1]+town_term10+type_term10+model10$coefficients[surface_index10]*log(s))*log(b)))
+
+if (length(model14$coefficients[interaction_type_town_index14])==0)
+{
+interaction1_term=0
+} else
+{
+interaction1_term=model14$coefficients[interaction_type_town_index14]
+}
+if (length(model14$coefficients[interaction_type_surface_index14])==0)
+{
+interaction2_term=0
+} else
+{
+interaction2_term=model14$coefficients[interaction_type_surface_index14]
+}
+if (length(model14$coefficients[interaction_town_surface_index14])==0)
+{
+interaction3_term=0
+} else
+{
+interaction3_term=model14$coefficients[interaction_town_surface_index14]
+}
+if (length(model14$coefficients[interaction_type_town_surface_index14])==0)
+{
+interaction4_term=0
+} else
+{
+interaction4_term=model14$coefficients[interaction_type_town_surface_index14]
+}
+modeled14_prices=append(modeled14_prices,as.numeric((model14$coefficients[1]+town_term14+type_term14+model14$coefficients[surface_index14]*log(s)+interaction1_term+interaction2_term*log(s)+interaction3_term*log(s)+interaction4_term*log(s))*log(b)))
 actual_prices=append(actual_prices,p)
 }
+
+# Illustration of model10 performance with a few, randomly-picked sales (randomly-picked, but in a deterministic way, for reproducibility):
 
 pdf('Illustration_performance_model10.pdf',width=7,height=7)
 plot(actual_prices,modeled_prices,xlim=c(0,price_zoom),ylim=c(0,price_zoom),xlab='Prix réel (€)',ylab='Prix modélisé (€)')
@@ -200,9 +257,76 @@ if (to=='Abeilhan')
 {
 town_term=0
 } else town_term=model10$coefficients[town_index]
-m=as.numeric((model10$coefficients[1]+town_term+type_term+model10$coefficients[surface_index]*log(s))*log(b))
+m=as.numeric((model10$coefficients[1]+town_term+type_term+model10$coefficients[surface_index10]*log(s))*log(b))
 arrows(p+1e5,m-1e5,p,m,angle=30,col=color)
-text(p+1e5,m-1e5,paste('(',model10$coefficients[1],'+',town_term,'+',type_term,'+',model10$coefficients[surface_index],'*log(',s,'))*log(',b,')',sep=''),pos=3,col=color)
+text(p+1e5,m-1e5,paste('(',model10$coefficients[1],'+',town_term,'+',type_term,'+',model10$coefficients[surface_index10],'*log(',s,'))*log(',b,')',sep=''),pos=3,col=color)
 text(p+1e5,m-1e5,paste('_',to,ty,s,b,sep=' '),pos=1,col=color)
 }
 dev.off()
+
+# Illustration of model14 performance with a few, randomly-picked sales (randomly-picked, but in a deterministic way, for reproducibility):
+
+pdf('Illustration_performance_model14.pdf',width=7,height=7)
+plot(actual_prices,modeled14_prices,xlim=c(0,price_zoom),ylim=c(0,price_zoom),xlab='Prix réel (€)',ylab='Prix modélisé (€)')
+abline(0,1,col='red')
+set.seed(100);picked_examples=sample(1:nrow(complete_data_built),3)
+for (picked in picked_examples)
+{
+if (picked==picked_examples[1]) color='red'
+if (picked==picked_examples[2]) color='blue'
+if (picked==picked_examples[3]) color='green'
+s=complete_data_built[picked,]$Surface
+p=complete_data_built[picked,]$Price
+to=complete_data_built[picked,]$Town
+ty=complete_data_built[picked,]$Type
+b=complete_data_built[picked,]$Built_surface
+town_index=grep(paste('^complete_data_built\\$Town',to,'$',sep=''),names(model14$coefficients))
+type_index=grep(paste('^complete_data_built\\$Type',ty,'$',sep=''),names(model14$coefficients))
+surface_index=grep('^log\\(complete_data_built\\$Surface\\)$',names(model14$coefficients))
+interaction_type_town_index14=grep(paste('^complete_data_built\\$Type',ty,':complete_data_built\\$Town',to,'$',sep=''),names(model14$coefficients))
+interaction_type_surface_index14=grep(paste('complete_data_built\\$Type',ty,':log\\(complete_data_built\\$Surface\\)',sep=''),names(model14$coefficients))
+interaction_town_surface_index14=grep(paste('^complete_data_built\\$Town',to,':log\\(complete_data_built\\$Surface\\)',sep=''),names(model14$coefficients))
+interaction_type_town_surface_index14=grep(paste('complete_data_built\\$Type',ty,':complete_data_built\\$Town',to,':log\\(complete_data_built\\$Surface\\)',sep=''),names(model14$coefficients))
+if (ty=='Appartement')
+{
+type_term=0
+} else type_term=model14$coefficients[type_index]
+if (to=='Abeilhan')
+{
+town_term=0
+} else town_term=model14$coefficients[town_index]
+if (length(model14$coefficients[interaction_type_town_index14])==0)
+{
+interaction1_term=0
+} else
+{
+interaction1_term=model14$coefficients[interaction_type_town_index14]
+}
+if (length(model14$coefficients[interaction_type_surface_index14])==0)
+{
+interaction2_term=0
+} else
+{
+interaction2_term=model14$coefficients[interaction_type_surface_index14]
+}
+if (length(model14$coefficients[interaction_town_surface_index14])==0)
+{
+interaction3_term=0
+} else
+{
+interaction3_term=model14$coefficients[interaction_town_surface_index14]
+}
+if (length(model14$coefficients[interaction_type_town_surface_index14])==0)
+{
+interaction4_term=0
+} else
+{
+interaction4_term=model14$coefficients[interaction_type_town_surface_index14]
+}
+m=as.numeric((model14$coefficients[1]+town_term+type_term+interaction1_term+(model14$coefficients[surface_index14]+interaction2_term+interaction3_term+interaction4_term)*log(s))*log(b))
+arrows(p+1e5,m-1e5,p,m,angle=30,col=color)
+text(p+1e5,m-1e5,paste('(',model14$coefficients[1],'+',town_term,'+',type_term,'+',interaction1_term,'+(',model14$coefficients[surface_index14],'+',interaction2_term,'+',interaction3_term,'+',interaction4_term,')*log(',s,'))*log(',b,')',sep=''),pos=3,col=color)
+text(p+1e5,m-1e5,paste('_',to,ty,s,b,sep=' '),pos=1,col=color)
+}
+dev.off()
+
