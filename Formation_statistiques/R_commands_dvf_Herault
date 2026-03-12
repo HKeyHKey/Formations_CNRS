@@ -113,7 +113,23 @@ model12=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~co
 model13=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~complete_data_built$Town+complete_data_built$Type*log(complete_data_built$Surface))
 model14=lm((complete_data_built$Price/log(complete_data_built$Built_surface))~complete_data_built$Type*complete_data_built$Town*log(complete_data_built$Surface))
 
+vif(model10) # Not much colinearity among explanatory variables (with GVIF^(1/(2*Df) being hardly larger than 1 for each variable): coefficients appear reliably estimated
+vif(model14,type="predictor") # GVIF cannot be evaluated because of the scarcity of some variable combinations (with a null standard deviation)
 
+# Preparing a smaller dataset, only with towns having each of the 3 types of constructed buildings:
+towns_with_all_3_buildings=c()
+for (to in unique(complete_data_built$Town))
+if (length(unique(complete_data_built$Type[complete_data_built$Town==to]))==3)
+towns_with_all_3_buildings=append(towns_with_all_3_buildings,to)
+mini=subset(complete_data_built,is.element(complete_data_built$Town,towns_with_all_3_buildings))
+model15=lm((mini$Price/log(mini$Built_surface))~mini$Type*mini$Town+log(mini$Surface))
+model16=lm((mini$Price/log(mini$Built_surface))~mini$Type+mini$Town*log(mini$Surface))
+model17=lm((mini$Price/log(mini$Built_surface))~mini$Town+mini$Type*log(mini$Surface))
+model18=lm((mini$Price/log(mini$Built_surface))~mini$Type*mini$Town*log(mini$Surface))
+vif(model15) # Some colinearity between the interacting variables (type and town): their coefficients are not precisely estimated
+vif(model16) # Some colinearity between the interacting variables (town and land surface): their coefficients are not precisely estimated
+vif(model17) # Some colinearity between the interacting variables (type and land surface): their coefficients are not precisely estimated
+vif(model18,type='predictor') # Weird, GVIF is infinite, probably poorly estimated. Hard to conclude.
 
 slice_size=surface_zoom/200
 x=c(0:(surface_zoom/slice_size))*slice_size
@@ -330,3 +346,21 @@ text(p+1e5,m-1e5,paste('_',to,ty,s,b,sep=' '),pos=1,col=color)
 }
 dev.off()
 
+### Assessment of residual normality for model10 and model14:
+
+pdf('Normalite_residus_modele_10.pdf',width=10,height=6)
+par(mfrow=c(1,3))
+hist(model10$residuals,n=4000,xlab='Résidus',ylab='Nombre',main='')
+hist(model10$residuals,n=4000,xlim=c(-1e5,1e5),xlab='Résidus',ylab='Nombre',main='')
+qqPlot(model10$residuals,id=FALSE,grid=FALSE,xlab='Quantiles normalisés',ylab='Résidus')
+dev.off()
+
+
+pdf('Normalite_residus_modele_14.pdf',width=10,height=6)
+par(mfrow=c(1,3))
+hist(model14$residuals,n=4000,xlab='Résidus',ylab='Nombre',main='')
+hist(model14$residuals,n=4000,xlim=c(-1e5,1e5),xlab='Résidus',ylab='Nombre',main='')
+qqPlot(model14$residuals,id=FALSE,grid=FALSE,xlab='Quantiles normalisés',ylab='Résidus')
+dev.off()
+
+print(shapiro.test(sample(model14$residuals,5000))) # only on 5000 randomly-picked residuals (Shapiro-Wilk test cannot take more)
